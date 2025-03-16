@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Taxonomy Viewer - Bullet Leaves</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f9f9f9;
+        }
+        json-taxo-viewer {
+            width: 50%;
+            max-width: 600px;
+        }
+    </style>
+</head>
+<body>
+    <h1>JSON Taxonomy Viewer - Bullet Leaves</h1>
+    <json-taxo-viewer></json-taxo-viewer>
+
+    <script type="module">
+        import { LitElement, html, css } from 'https://cdn.jsdelivr.net/gh/lit/dist@2/all/lit-all.min.js';
+
+        class JsonTaxoViewer extends LitElement {
+            static styles = css`
+                :host {
+                    display: flex;
+                    flex-direction: column;
+                    font-family: Arial, sans-serif;
+                    border: 1px solid #ccc;
+                    padding: 10px;
+                    max-width: 400px;
+                }
+                .source {
+                    display: flex;
+                    gap: 5px;
+                    margin-bottom: 10px;
+                }
+                .tree-container {
+                    flex-grow: 1;
+                    overflow-y: auto;
+                    max-height: 300px;
+                    border: 1px solid #ddd;
+                    padding: 5px;
+                }
+                .node {
+                    cursor: pointer;
+                    padding: 2px 5px;
+                    margin-left: 40px;
+                    font-size: 13px;
+                }
+                .node:hover {
+                    background: #f0f0f0;
+                }
+                details {
+                    margin-left: 10px;
+                }
+                summary {
+                    cursor: pointer;
+                    font-weight: bold;
+                    padding: 2px 5px;
+                    margin-left: 10px;
+                }
+                .leaf {
+                    margin-left: 20px;
+                    color: gray;
+                }
+                .value-field {
+                    margin-top: 10px;
+                    padding: 5px;
+                    border: 1px solid #ddd;
+                    background: #fafafa;
+                    min-height: 40px;
+                }
+            `;
+
+            static properties = {
+                data: { type: Object },
+                selectedValue: { type: String },
+            };
+
+            constructor() {
+                super();
+                this.data = null;
+                this.selectedValue = '';
+            }
+
+            async loadJsonFromUrl(event) {
+                const url = event.target.value;
+                if (!url) return;
+                try {
+                    const response = await fetch(url);
+                    this.data = await response.json();
+                    this.requestUpdate();
+                } catch (error) {
+                    console.error('Failed to load JSON:', error);
+                }
+            }
+
+            onFileUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        this.data = JSON.parse(reader.result);
+                        this.requestUpdate();
+                    } catch (error) {
+                        console.error('Invalid JSON file:', error);
+                    }
+                };
+                reader.readAsText(file);
+            }
+
+            onNodeClick(path, value) {
+                if (typeof value !== 'object' || value === null) {
+                    this.selectedValue = JSON.stringify(value, null, 2);
+                }
+            }
+
+            renderTree(data, path = '') {
+                if (typeof data !== 'object' || data === null) {
+                    return html`<div class="leaf">• ${path.split('.').pop()}</div>`;
+                }
+                return html`
+                    ${Object.keys(data).map(
+                        key => data[key] && typeof data[key] === 'object' ? html`
+                            <details>
+                                <summary>${key}</summary>
+                                <div>${this.renderTree(data[key], path + '.' + key)}</div>
+                            </details>` :
+                            html`<div class="leaf">• ${key}</div>`
+                    )}
+                `;
+            }
+
+            render() {
+                return html`
+                    <div class="source">
+                        <input type="file" @change="${this.onFileUpload}" />
+                        <input type="text" placeholder="JSON URL" @change="${this.loadJsonFromUrl}" />
+                    </div>
+                    <div class="tree-container">
+                        ${this.data ? this.renderTree(this.data) : html`<p>Load a JSON file or enter a URL</p>`}
+                    </div>
+                    <div class="value-field">${this.selectedValue}</div>
+                `;
+            }
+        }
+
+        customElements.define('json-taxo-viewer', JsonTaxoViewer);
+    </script>
+</body>
+</html>
